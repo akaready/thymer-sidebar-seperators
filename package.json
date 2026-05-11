@@ -1,0 +1,13 @@
+{
+	"name": "sidebar-seperators",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Adds movable theme-colored separators to Thymer's collections list.",
+	"scripts": {
+		"dev": "node ../../.sdk/dev.js",
+		"dev:verbose": "node ../../.sdk/dev.js --print-code",
+		"build": "node ../../.sdk/dev.js --once",
+		"build:bundle": "node ../../.sdk/dev.js --once"
+	}
+}
