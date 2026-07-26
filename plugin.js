@@ -2151,7 +2151,9 @@ ${report}
   __name(appendChildren, "appendChildren");
   function panel({ pluginClass } = {}, children = []) {
     const cls = ["tps-panel", pluginClass].filter(Boolean).join(" ");
-    return h("div", { class: cls }, ...children);
+    const root = h("div", { class: cls }, ...children);
+    restoreSectionState(root, pluginClass || "");
+    return root;
   }
   __name(panel, "panel");
   function pluginHeader({
@@ -2440,6 +2442,45 @@ ${report}
     });
   }
   __name(pluginHeaderFromConfig, "pluginHeaderFromConfig");
+  var SECTION_STATE = (() => {
+    const g = (
+      /** @type {Record<string, any>} */
+      /** @type {unknown} */
+      globalThis
+    );
+    if (!g.__tpsSectionState) g.__tpsSectionState = /* @__PURE__ */ new Map();
+    return (
+      /** @type {Map<string, boolean>} */
+      g.__tpsSectionState
+    );
+  })();
+  function sectionStateKey(el2, key) {
+    const scope = (
+      /** @type {HTMLElement} */
+      el2.dataset.sectionScope || ""
+    );
+    return scope + "::" + key;
+  }
+  __name(sectionStateKey, "sectionStateKey");
+  function restoreSectionState(root, scope) {
+    const nodes = root.querySelectorAll(".tps-section--collapsible[data-section-key]");
+    for (const node of nodes) {
+      const el2 = (
+        /** @type {HTMLElement} */
+        node
+      );
+      el2.dataset.sectionScope = scope;
+      const key = el2.dataset.sectionKey || "";
+      const remembered = SECTION_STATE.get(sectionStateKey(el2, key));
+      if (remembered === void 0) continue;
+      const apply = (
+        /** @type {any} */
+        el2._tpsSetOpen
+      );
+      if (typeof apply === "function") apply(remembered, true);
+    }
+  }
+  __name(restoreSectionState, "restoreSectionState");
 
   // ../../shared/settings-ui/theme-vars.js
   var DEFAULT_THEME_SOURCES = [
@@ -3571,7 +3612,7 @@ ${report}
   __name(pingActive, "pingActive");
 
   // plugin.js
-  var PLUGIN_VERSION = "2.1.9";
+  var PLUGIN_VERSION = "2.1.10";
   var PLUGIN_KEY = "sidebarSeparators";
   var MARK_ATTR = "data-plg-sidebar-separator";
   var SCHEMA_VERSION = 3;
