@@ -4246,6 +4246,7 @@ ${report}
             "aria-pressed": String(sep.side === c.side),
             onClick: /* @__PURE__ */ __name(() => {
               if (sep.side === c.side) return;
+              sep.mateGuid = sep.anchorGuid;
               sep.side = c.side;
               sep.anchorGuid = c.guid;
               this._saveSeparators();
@@ -4795,6 +4796,7 @@ ${report}
       if (!raw || typeof raw !== "object") return null;
       const id = typeof raw.id === "string" && raw.id ? raw.id : this._makeSeparatorId();
       const anchorGuid = typeof raw.anchorGuid === "string" && raw.anchorGuid ? raw.anchorGuid : null;
+      const mateGuid = typeof raw.mateGuid === "string" && raw.mateGuid ? raw.mateGuid : null;
       const side = raw.side === "before" || raw.side === "after" ? raw.side : "after";
       const rawSeq = typeof raw.seq === "string" ? Number(raw.seq) : raw.seq;
       const seq = Number.isFinite(rawSeq) ? Number(rawSeq) : 0;
@@ -4802,6 +4804,7 @@ ${report}
       return {
         id,
         anchorGuid,
+        mateGuid,
         side,
         seq,
         presetId: typeof raw.presetId === "string" ? raw.presetId : null,
@@ -4873,6 +4876,7 @@ ${report}
       return Array.from(this._separators.values()).map((s) => ({
         id: s.id,
         anchorGuid: s.anchorGuid,
+        mateGuid: s.mateGuid,
         side: s.side,
         seq: s.seq,
         presetId: s.presetId,
@@ -5764,6 +5768,17 @@ ${report}
       for (const sep of this._separators.values()) {
         if (!sep.anchorGuid) continue;
         if (live.has(sep.anchorGuid)) continue;
+        // The collection on the other side of the gap is a position, not an
+        // index: it survives the shift caused by the deletion, and unlike
+        // `_lastGap` it is persisted, so the repair also works in a session
+        // that never saw the separator before the collection went away.
+        if (sep.mateGuid && live.has(sep.mateGuid) && guids.indexOf(sep.mateGuid) >= 0) {
+          sep.anchorGuid = sep.mateGuid;
+          sep.side = sep.side === "before" ? "after" : "before";
+          sep.mateGuid = null;
+          repaired = true;
+          continue;
+        }
         const fallback = this._lastGap.has(sep.id) ? (
           /** @type {number} */
           this._lastGap.get(sep.id)
@@ -5803,20 +5818,24 @@ ${report}
       const g = Math.max(0, Math.min(n, gap));
       if (!n) {
         sep.anchorGuid = null;
+        sep.mateGuid = null;
         sep.side = "before";
         return;
       }
       if (sep.side === "before" && g < n) {
         sep.anchorGuid = guids[g];
+        sep.mateGuid = g > 0 ? guids[g - 1] : null;
         sep.side = "before";
         return;
       }
       if (g > 0) {
         sep.anchorGuid = guids[g - 1];
+        sep.mateGuid = g < n ? guids[g] : null;
         sep.side = "after";
         return;
       }
       sep.anchorGuid = guids[0];
+      sep.mateGuid = null;
       sep.side = "before";
     }
     /** @param {string | null} anchorGuid @param {'before'|'after'} side */
@@ -5868,6 +5887,13 @@ ${report}
           const g = this._gapOf(sep, guids);
           if (g < 0) continue;
           this._lastGap.set(sep.id, g);
+          if (!sep.mateGuid) {
+            const mate = sep.side === "before" ? guids[g - 1] : guids[g];
+            if (mate) {
+              sep.mateGuid = mate;
+              collectionsChanged = true;
+            }
+          }
           if (!byGap.has(g)) byGap.set(g, []);
           byGap.get(g).push(sep);
         }
